@@ -1,0 +1,158 @@
+#include <DHT11.h>
+#include <Servo.h>
+#include <LiquidCrystal_I2C.h>
+#include <U8glib.h>
+#define relay 9
+#define leftAir 10
+#define rightAir 11
+LiquidCrystal_I2C lcd(0x27,16,2);
+Servo myservo;  
+int interruptPinDay = 3;
+int interruptPinSeason = 2;
+DHT11 dht11(13); 
+bool day = true;
+bool lamp = false;
+bool summer = true;
+bool lamp2 = false;
+float LightR = 0;
+float LightL = 0;
+
+void setup() {
+  myservo.attach(8);  
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+
+  // wind receiver pins
+  pinMode(leftAir, INPUT);
+  pinMode(rightAir, INPUT);
+
+  Serial.begin(9600);
+  myservo.write(90);
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+  attachInterrupt(digitalPinToInterrupt(interruptPinDay), toggle, RISING);
+  pinMode(7, OUTPUT);
+  digitalWrite(7, LOW);
+  attachInterrupt(digitalPinToInterrupt(interruptPinSeason), toggle2, RISING);
+  lcd.init();
+  lcd.clear();         
+  lcd.backlight(); 
+  pinMode(relay,OUTPUT);
+}
+
+void loop() {
+  int temperature = 0;
+  int humidity = 0;
+  int result = dht11.readTemperatureHumidity(temperature, humidity);
+  bool left = digitalRead(10);
+  bool right = digitalRead(11);
+  ///Serial.println(left);
+  //Serial.println(right);
+  lcd.setCursor(1,0);   //Set cursor to character 2 on line 0
+  lcd.print("Temperature: ");
+  lcd.print(temperature);
+  lcd.setCursor(2,1);   
+  lcd.print("Humidity: ");
+  lcd.print(humidity);
+
+  
+  LightR = analogRead(A1);  
+  LightL = analogRead(A0);  
+ 
+  if(humidity < 100){
+      if(humidity<75){
+    digitalWrite(relay,HIGH);
+  }
+  else{
+    digitalWrite(relay,LOW);
+  }
+
+  if(summer){
+    if(day){
+      stopLight();
+    }
+    else{
+    
+      if(left == HIGH){
+        myservo.write(30);
+      }
+      else if(right == HIGH){
+        myservo.write(150);
+      }
+
+    }
+  }
+  else{ //winter
+    if(day){
+      allowLight();
+    }
+    else{
+      myservo.write(90);
+    }
+
+  }
+  }
+  else{
+    myservo.write(90);
+  }
+  
+  delay(1000);
+}
+
+void toggle() {
+  day = !day;
+  if (lamp) {
+    digitalWrite(4, LOW);
+    lamp = false;
+    Serial.println("Day mode on");
+  } else {
+    digitalWrite(4, HIGH);
+    lamp = true;
+    Serial.println("Night mode on");
+  }
+}
+void toggle2() {
+  summer = !summer;
+  if (lamp2) {
+    digitalWrite(7, LOW);
+    lamp2 = false;
+    Serial.println("Summer Time");
+  } else {
+    digitalWrite(7, HIGH);
+    lamp2 = true;
+    Serial.println("Winter Time");
+  }
+}
+void stopLight(){
+  if (LightR > LightL) {
+      if (LightR < 150) {
+        myservo.write(60);
+      } else if (LightR < 350) {
+        myservo.write(30);
+      } else {
+        myservo.write(0);
+      }
+
+    } else if (LightL > LightR) {
+      if (LightL < 150) {
+        myservo.write(120);
+      } else if (LightL < 350) {
+        myservo.write(150);
+      } else {
+        myservo.write(180);
+      }
+    }
+}
+void allowLight(){
+  if(LightR < 350 && LightL < 350){
+    myservo.write(180);
+  }
+  else if (LightR < LightL) {
+    myservo.write(30);
+
+    } 
+  else{
+        myservo.write(150);
+    }
+}
+ 
